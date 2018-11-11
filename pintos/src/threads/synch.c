@@ -1,7 +1,6 @@
 /* This file is derived from source code for the Nachos
    instructional operating system.  The Nachos copyright notice
    is reproduced in full below. */
-
 /* Copyright (c) 1992-1996 The Regents of the University of California.
    All rights reserved.
 

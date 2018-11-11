@@ -91,6 +91,11 @@ timer_sleep (int64_t ticks)
 {
   int64_t start = timer_ticks ();
 
+  /* If timer ticks passed as parameter is non-positive then don't sleep and continue work */
+  if(ticks <= 0){
+    return;
+  }
+
   ASSERT (intr_get_level () == INTR_ON);
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
