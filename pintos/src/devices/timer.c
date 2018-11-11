@@ -30,11 +30,18 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+/* Sleeping threads list that keeps track of sleeping threads */
+static struct list sleeping_threads_list;
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
 timer_init (void) 
 {
+  /* Custom code begins */
+  list_init (&sleeping_threads_list); /* Initializing sleeping list */
+  /* Custom code ends */
+
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -97,8 +104,19 @@ timer_sleep (int64_t ticks)
   }
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  /* Disabling interrupts to make sleeping list push and pop is atomic */
+  enum intr_level old_level = intr_disable();
+  
+  /* Define the tick after which the thread will wakeup */
+  thread_current()->wakeuptime = start + ticks;
+  
+  /* Ascending ordered insertion to the sleeping list (sleeping list is always sorted) */
+  list_insert_ordered(&sleeping_threads_list,
+                      &(thread_current()->elem),
+                      thread_wakeuptime_comparator, NULL);
+  thread_block();
+  intr_set_level(old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -177,6 +195,25 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  enum intr_level old_level = intr_disable ();
+  while(!(list_empty(&sleeping_threads_list)))
+  {
+    struct thread *removedThread = list_entry(list_front(&sleeping_threads_list), struct thread, elem);
+    if (removedThread->wakeuptime <= ticks){
+      /* Pop the thread from the front of the list */
+      list_pop_front(&sleeping_threads_list);
+      /* Unblock the thread */
+      thread_unblock(removedThread);
+      /* Sort the ready list in descending order so that highest priority gets popped first */
+      sort_ready_list();
+    }
+    else {
+      break;
+    }
+  }
+
+  intr_set_level(old_level);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -230,7 +267,7 @@ real_time_sleep (int64_t num, int32_t denom)
       /* We're waiting for at least one full timer tick.  Use
          timer_sleep() because it will yield the CPU to other
          processes. */                
-      timer_sleep (ticks); 
+      timer_sleep (ticks);
     }
   else 
     {

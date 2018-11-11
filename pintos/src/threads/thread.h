@@ -5,6 +5,10 @@
 #include <list.h>
 #include <stdint.h>
 
+/* Custom code begins */
+#include "threads/synch.h" // imported to get access to semaphore
+/* Custom code ends */
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -92,6 +96,11 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    
+    /* Custom code begins */
+    struct semaphore blocked;
+    int64_t wakeuptime;                 /* Tick on which to wakeup if sleeping */
+    /* Custom code ends */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -125,6 +134,13 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+
+/* Custom code begins */
+/* Functions defined that help to implement no busy_wait sleep and priorities */
+bool thread_wakeuptime_comparator(const struct list_elem *,const struct list_elem *,void *);
+bool thread_priority_comparator(const struct list_elem *,const struct list_elem *,void *);
+void sort_ready_list(void);
+/* Custom code ends */
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

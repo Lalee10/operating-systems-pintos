@@ -545,6 +545,38 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
+/* Custom code begins */
+/* 
+  Below are described two comparator functions
+  thread_wakeuptime_comparator is used for ordered insertion in sleeping list in ascending order
+  thread_priority_comparator is used for sorting the readyList in descending order
+*/
+bool thread_wakeuptime_comparator(const struct list_elem *first,
+                                  const struct list_elem *second,
+                                  void *unused)
+{
+  int wakeuptimeFirst = list_entry(first,struct thread,elem)->wakeuptime;
+  int wakeuptimeSecond = list_entry(second,struct thread,elem)->wakeuptime;
+  return(wakeuptimeFirst < wakeuptimeSecond);
+}
+
+bool thread_priority_comparator(const struct list_elem *first,
+                                const struct list_elem *second,
+                                void *unused)
+{
+  int priorityFirst = list_entry(first,struct thread,elem)->priority;
+  int prioritySecond = list_entry(second,struct thread,elem)->priority;
+  return(priorityFirst > prioritySecond);
+}
+
+void
+sort_ready_list(void){
+  list_sort(&ready_list, thread_priority_comparator, NULL);
+}
+
+/* Custom code ends */
+
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
